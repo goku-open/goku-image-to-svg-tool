@@ -100,12 +100,43 @@ yunzhan365-scraper/
 4. 失败：展示 `returncode`、`stderr`、提示信息（如"请确认 tools/vecto 存在且可执行"）。
 5. 结束：清理临时目录。
 
-## 6. 测试
+## 6. 测试（每个功能必须配套测试）
 
-- 手动验证：用 Vecto `vecto samples` 生成的测试图（crisp/blended/transparent）走通 trace 与 render 流程。
-- 校验 SVG 可正常预览、PNG 可正常显示。
-- 校验各参数控件能映射到正确 CLI 参数并成功执行。
-- 校验错误路径：无二进制时给出友好提示。
+测试框架：**pytest**（新增到 `requirements-dev.txt` 或单独 dev 依赖），测试文件放 `tests/` 目录，命令 `python -m pytest`。
+
+### 6.1 测试前置（fixture）
+
+- `vecto samples` 生成测试样本图（crisp.png / blended.png / transparent.png）放入 `tests/fixtures/`（入库）。
+- 一个简单 SVG fixture（`tests/fixtures/sample.svg`），供 render 测试使用。
+
+### 6.2 逐功能测试用例
+
+| # | 被测功能 | 测试用例 | 断言 |
+|---|---------|---------|------|
+| 1 | `get_vecto_binary()` | 二进制存在且可执行 | 返回绝对路径，无报错 |
+| 2 | `get_vecto_binary()` 错误路径 | 模拟二进制缺失/不可执行 | 抛出友好异常，含安装指引 |
+| 3 | `run_vecto()` 成功路径 | 调 `vecto --version` | `code==0`，stdout 含 `vecto 0.4.2` |
+| 4 | `run_vecto()` 非零返回码 | 调未知命令 | 返回非零 code，stderr 非空 |
+| 5 | `run_vecto()` 超时 | 短 timeout 下跑慢命令 | 抛超时异常，不悬挂 |
+| 6 | `trace_image()` 基础 | crisp.png → SVG | 成功，输出文件存在、非空、以 `<svg` 开头 |
+| 7 | `trace_image()` 各参数映射 | colors/detail/style/polygons 各组合 | 命令参数正确拼装且执行成功 |
+| 8 | `trace_image()` --stats | 开启 stats | stdout 含 `timings:` 诊断信息 |
+| 9 | `trace_image()` 透明图 | transparent.png | 成功输出 SVG，保留透明度语义 |
+| 10 | `trace_image()` 无效输入 | 传入不存在的文件 | 非零返回码，友好报错 |
+| 11 | `render_svg()` 基础 | sample.svg → PNG | 成功，输出 PNG 文件存在、非空、以 PNG 魔数开头 |
+| 12 | `render_svg()` --scale | scale=2 | 输出 PNG 尺寸约为 scale=1 的 2 倍 |
+| 13 | `render_svg()` 无效 SVG | 损坏内容 | 非零返回码，友好报错 |
+| 14 | 临时目录清理 | 转换完成后 | 临时目录被删除，无残留文件 |
+| 15 | i18n 双语言 | 所有 UI key | zh/en 两个 locale 的 key 集合一致，无缺失 |
+| 16 | 页面可渲染 | 用 `streamlit.testing` 跑三个页面 | 页面脚本无异常执行 |
+
+> 注：16 为 UI 冒烟测试（Streamlit 提供 `streamlit.testing` AppTest）；如引入成本过高可在实现计划中降级为"手动验证 + 命令行冒烟"，实现时确认。
+
+### 6.3 手动验收（发布前必过）
+
+- 浏览器打开各页：上传→转换→预览→下载全流程。
+- 中英文切换后文案正常。
+- 无 `tools/vecto` 时的错误提示友好。
 
 ## 7. 交付物清单
 
@@ -114,8 +145,10 @@ yunzhan365-scraper/
 - [ ] `pages_content/0_Image_to_Vector.py`、`1_SVG_to_PNG.py`、`2_About.py`
 - [ ] `streamlit_app.py` 导航更新
 - [ ] `locales/zh.json`、`en.json` 新文案
-- [ ] `requirements.txt` 精简
-- [ ] `README.md` 重写
+- [ ] `requirements.txt` 精简（+ dev 依赖 pytest）
+- [ ] `tests/` 目录与上述测试用例全部通过（`python -m pytest` 全绿）
+- [ ] `tests/fixtures/` 样本图与 SVG fixture 入库
+- [ ] `README.md` 重写（含测试运行说明）
 - [ ] 删除旧文件：`0_PDF_Download.py`、`1_Data_Analysis.py`、Node.js 相关代码
 - [ ] 本机运行验证 + i18n 双语言验证
 
@@ -125,6 +158,7 @@ yunzhan365-scraper/
 - 不重写 Vecto C# 引擎为 Python（2200 行核心，无意义）。
 - 不接入 Streamlit Community Cloud 部署配置（用户未要求；二进制入库已为云端就绪铺路）。
 - 不做多用户并发调度（个人工具场景）。
+- 测试仅覆盖本工具自有代码（utils / 页面 / i18n），不测试 Vecto 引擎本身的正确性（上游项目已自带 14 项几何不变量测试 + `vecto bench`）。
 
 ## 9. 参考
 
