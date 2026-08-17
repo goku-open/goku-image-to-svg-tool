@@ -23,6 +23,8 @@
   "export_png": "Export PNG",
   "export_scale": "PNG scale",
   "stats_title": "Trace details",
+  "info_tracing": "Tracing image…",
+  "info_rendering": "Rendering PNG…",
   "error_trace": "Trace failed: {msg}",
   "error_render": "Render failed: {msg}",
   "about_text": "Built on the open-source **Vecto** engine (MIT License).",

@@ -68,9 +68,10 @@ with right:
     style = st.session_state.get("style_sel", _DEFAULT_STYLE)
     detail = st.session_state.get("detail_sel", _DEFAULT_DETAIL)
 
-    result = trace_cached(
-        image_bytes, filename, effective_colors, 16, detail, style, False, True
-    )
+    with st.spinner(_("info_tracing")):
+        result = trace_cached(
+            image_bytes, filename, effective_colors, 16, detail, style, False, True
+        )
 
     swatches = parse_palette_from_svg(result["svg"]) if result["ok"] else []
     if swatches:
@@ -160,9 +161,11 @@ with left:
         )
     with b2:
         try:
+            with st.spinner(_("info_rendering")):
+                png_bytes = png_cached(result["svg"], float(scale))
             st.download_button(
                 _("export_png"),
-                data=png_cached(result["svg"], float(scale)),
+                data=png_bytes,
                 file_name=f"{stem}.png",
                 mime="image/png",
                 use_container_width=True,
