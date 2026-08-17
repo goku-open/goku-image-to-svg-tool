@@ -58,20 +58,36 @@ with title_col2:
 with title_col3:
     right_col1, right_col2 = st.columns([1, 1])
     with right_col2:
-        gzh_src = image_to_data_uri(resolve_asset_path("gzh.jpg"))
-        if gzh_src:
-            st.markdown(
-                """
-                <div class="goku-gzh goku-header" style="display:flex; flex-direction:column; align-items:center; width:140px; margin:0 auto;">
-                    <img src="{src}" style="width:140px; height:auto; display:block;" />
-                    <div style="margin-top:4px; text-align:center;">公众号-反馈/建议</div>
-                </div>
-                """.format(src=gzh_src),
-                unsafe_allow_html=True,
-            )
+        if st.session_state.lang == "en":
+            x_src = image_to_data_uri(resolve_asset_path("x-logo.png"))
+            if x_src:
+                st.markdown(
+                    """
+                    <a class="goku-gzh goku-header" href="https://x.com/pachong888" target="_blank" rel="noopener"
+                       style="display:flex; flex-direction:column; align-items:center; width:90px; margin:0 auto; text-decoration:none;">
+                        <img src="{src}" style="width:42px; height:auto; display:block;" />
+                        <div style="margin-top:4px; text-align:center; color:inherit;">@pachong888</div>
+                    </a>
+                    """.format(src=x_src),
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown("[@pachong888](https://x.com/pachong888)", unsafe_allow_html=True)
         else:
-            st.image(resolve_asset_path("gzh.jpg"), width=140)
-            st.markdown("<div style='text-align: center; margin-top: 4px;'>公众号-反馈/建议</div>", unsafe_allow_html=True)
+            gzh_src = image_to_data_uri(resolve_asset_path("gzh.jpg"))
+            if gzh_src:
+                st.markdown(
+                    """
+                    <div class="goku-gzh goku-header" style="display:flex; flex-direction:column; align-items:center; width:140px; margin:0 auto;">
+                        <img src="{src}" style="width:140px; height:auto; display:block;" />
+                        <div style="margin-top:4px; text-align:center;">公众号-反馈/建议</div>
+                    </div>
+                    """.format(src=gzh_src),
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.image(resolve_asset_path("gzh.jpg"), width=140)
+                st.markdown("<div style='text-align: center; margin-top: 4px;'>公众号-反馈/建议</div>", unsafe_allow_html=True)
 
 st.caption(_("caption_top"))
 
