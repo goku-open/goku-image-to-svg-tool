@@ -7,6 +7,11 @@ from pathlib import Path
 
 import streamlit as st
 
+# .NET 运行时在无 libicu 的 Linux 容器（如 Streamlit Community Cloud 的 Debian 11）会
+# 直接 FailFast 崩溃。强制 invariant 模式让 vecto 跳过 ICU；subprocess 继承本环境变量。
+os.environ.setdefault("DOTNET_SYSTEM_GLOBALIZATION_INVARIANT", "1")
+os.environ.setdefault("CORECLR_GLOBAL_INVARIANT", "1")  # 旧版运行时兼容兜底
+
 # --- Vecto 二进制封装 ---
 
 VEKTO_BIN = Path(__file__).resolve().parent / "tools" / "vecto"
