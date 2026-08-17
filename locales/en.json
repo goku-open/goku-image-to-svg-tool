@@ -5,7 +5,7 @@
   "page_vec_desc": "Upload an image; conversion runs automatically. Compare and export SVG or PNG.",
   "page_about_title": "About",
   "page_about_desc": "Docs and license",
-  "upload_label": "Upload image (PNG/JPG/BMP/GIF)",
+  "upload_label": "Upload image (PNG/JPG/BMP/GIF/TGA/TIFF/WebP/PBM/PPM)",
   "warn_no_file": "Upload an image; conversion starts automatically",
   "palette": "Palette",
   "palette_auto": "Automatic colors",

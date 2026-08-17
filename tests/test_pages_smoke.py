@@ -23,6 +23,20 @@ def test_workbench_auto_converts_on_upload():
     assert "调色板" in rendered or "Palette" in rendered
 
 
+def test_workbench_uploader_accepts_webp():
+    import io
+
+    from PIL import Image
+
+    at = AppTest.from_file(str(PAGES / "0_Image_to_Vector.py"), default_timeout=120)
+    at.run()
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 48), (120, 80, 200)).save(buf, format="WEBP")
+    at.file_uploader[0].set_value(("input.webp", buf.getvalue(), "image/webp"))
+    at.run()
+    assert not at.exception, f"raised: {[str(e) for e in at.exception]}"
+
+
 def test_about_page_renders():
     at = AppTest.from_file(str(PAGES / "2_About.py"), default_timeout=30)
     at.run()

@@ -17,7 +17,7 @@ from utils import (
 init_state()
 
 MAX_PREVIEW_W = 1200
-_IMAGE_TYPES = ["png", "jpg", "jpeg", "bmp", "gif"]
+_IMAGE_TYPES = ["png", "jpg", "jpeg", "bmp", "gif", "tga", "tiff", "webp", "pbm", "ppm"]
 _DEFAULT_STYLE = "auto"
 _DEFAULT_DETAIL = "medium"
 

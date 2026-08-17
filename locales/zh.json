@@ -5,7 +5,7 @@
   "page_vec_desc": "上传图片即自动转换，对比原图与矢量结果，导出 SVG 或 PNG",
   "page_about_title": "关于",
   "page_about_desc": "工具说明与许可",
-  "upload_label": "上传图片（PNG/JPG/BMP/GIF）",
+  "upload_label": "上传图片（PNG/JPG/BMP/GIF/TGA/TIFF/WebP/PBM/PPM）",
   "warn_no_file": "请上传一张图片，转换会自动开始",
   "palette": "调色板",
   "palette_auto": "自动调色板",
