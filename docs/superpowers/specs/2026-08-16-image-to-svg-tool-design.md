@@ -212,6 +212,45 @@ yunzhan365-scraper/
 - 不做多用户并发调度（个人工具场景）。
 - 测试仅覆盖本工具自有代码（utils / 页面 / i18n），不测试 Vecto 引擎本身的正确性（上游项目已自带 14 项几何不变量测试 + `vecto bench`）。
 
+## 8.5 手机端适配调研结论（2026-08-17，仅调研未实施）
+
+> 用户要求"调研一下"Streamlit 手机适配方案，**保持现状暂不改代码**，本节目的是留档，不含任何待办。
+
+**结论：Streamlit 无官方"移动版开关"**，手机浏览器直接访问 URL 即用；其 Web 布局非移动优先，有若干已知痛点：
+
+| 痛点 | 说明 | 状态 |
+|------|------|------|
+| `st.columns` 窄屏自动垂直堆叠 | 官方文档明确：屏幕过窄时 columns stack 而非 flex 换行。本项目 `[8,3]` 左右分栏在手机上为"预览在上、参数面板在下"，顺序可用但需滚动 | 无官方关闭开关（streamlit/streamlit#16056 请求中） |
+| `st.selectbox` 手机上点触发虚拟键盘 | 实现为输入框+下拉，point-and-tap 时先弹键盘 | 社区多年抱怨无官方修复；可用 `st.radio`(horizontal) 替代 |
+| sidebar → 汉堡菜单 | `st.navigation` sidebar 位置在窄屏自动折叠为汉堡菜单 | 官方已适配 |
+| 顶部固定 `st.columns` 标题栏 | logo/标题/图片在窄屏挤成一列 | 可用 CSS 处理，未做 |
+| 拖拽对比滑块 | `streamlit-image-comparison`（JuxtaposeJS 定宽）窄屏勉强可用 | 第三方便宜行事 |
+
+**官方推荐的适配手段**：① `st.container(horizontal=True)` 横向容器窄屏自动 flex 换行（vs columns 堆叠更可控）；② `st.markdown` 注入 CSS media query；③ 元素 `width="stretch"` 自适应。
+
+**本工具已实施的优化（2026-08-17，见 §8.6）**：
+1. Style/Detail 的 `st.selectbox` → `st.radio`(horizontal)，避免手机弹键盘；
+2. 顶部标题栏加响应式 CSS（media query），窄屏隐藏公众号块、标题/logo 居中、字号缩小；
+3. 参数面板 `[8,3]` 分栏在窄屏保持自动堆叠（预览在上、参数在下），**未挪 sidebar**——避免破坏桌面"右栏对齐原版"，列为已知限制。
+
+## 8.6 手机端适配改动（2026-08-17，已实施）
+
+> 依据 §8.5 调研结论，实施 2 项低成本改动消除手机三大痛点中最影响使用的前两项目；不动布局结构。
+
+### 改动 1：Style/Detail selectbox → radio(horizontal)
+- **文件**：`pages_content/0_Image_to_Vector.py`
+- 两处 `st.selectbox` 换为 `st.radio(label_visibility="collapsed", horizontal=True, key="style_sel"/"detail_sel")`。
+- **关键**：`key` 不变，`st.session_state.get("style_sel","auto")` 技巧（色块位置正确 + 改参自动重转）完全兼容，无行为变化。
+- 桌面观感：横排小按钮，仍在原版面板位置。
+
+### 改动 2：streamlit_app.py 响应式 CSS
+- media query：`@media (max-width: 700px)`——公众号图（gzh 块）`display:none`；标题/logo 居中；`h1` 字号缩小。桌面不受影响。
+
+### 已知限制（本次不改）
+- `st.columns([8,3])` 手机堆叠为"预览在上、参数在下"，需滚动；未挪 sidebar（桌面右栏对齐原版优先）。
+- `streamlit-image-comparison` + slider 触摸体验受第三方组件限制。
+- 不能关闭 columns stacking（streamlit/streamlit#16056 未合并）。
+
 ## 9. 参考
 
 - Vecto 仓库：https://github.com/danielmevit/vecto （MIT）

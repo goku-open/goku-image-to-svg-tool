@@ -907,3 +907,29 @@ Expected: 无未提交改动（托管的样本 fixture 与二进制在内）。
 - [x] **Step 3**: locales 移除 `palette_max`/`param_polygons`/`param_stats`，zh/en 同步；test_locales required keys 更新。
 - [x] **Step 4**: `python3 -m pytest tests/` 25 全绿；AppTest 验证色块 markdown 块位于「调色板」后、「转换风格」前，改 Style 无异常且色块仍现。
 - [x] **Step 5**: spec §4.2/§4.6 记录对齐结论与 session_state 技巧。
+
+### Task 9.7 手机端适配调研（2026-08-17，用户指示"仅调研，暂不改代码"）
+
+- [x] **研究**：Streamlit 官网文档 + GitHub issue + community posts，汇总手机端已知痛点与官方推荐做法。
+- [x] **结论**：已留档至 spec §8.5（无官方移动开关；columns 窄屏堆叠/selectbox 弹键盘/汉堡菜单/顶部标题栏挤、`horizontal=True` 容器与 CSS media query 为官方适配手段；本工具方向 1~3 未实施）。
+- [x] **不实施**：以用户确认"只记录结论，不改代码"，无代码/测试改动，后续若要实施按 spec §8.5 方向补 spec/plan。
+
+### Task 9.8 手机端适配实施（2026-08-17，用户批准 §8.6 设计）
+
+**Files:**
+- Modify: `pages_content/0_Image_to_Vector.py`（Style/Detail selectbox→radio horizontal，key 不变）
+- Modify: `streamlit_app.py`（顶部标题栏加 @media CSS）
+- Modify: `tests/test_pages_smoke.py`（新增 2 测试）
+- Modify: `docs/superpowers/specs/...+design.md`（§8.6）、`docs/superpowers/plans/...+tool.md`（本任务）
+
+**新增测试（TDD，先写后跑）：**
+1. `test_workbench_radio_style_change`：AppTest 上传 crisp.png → 定位 key=`style_sel` 的 radio → `set_value("crisp")` → run → 无异常、色块仍现、summary 仍在。
+2. `test_header_css_media_query`：AppTest 跑 `streamlit_app.py` → 存在含 `@media` 的 raw markdown。
+
+**验证：** `python3 -m pytest tests/ -v` 全绿（预计 28→30 项）；streamlit_app 仍启动。
+
+- [x] **Step 1**: 写新增测试（红：radio/`@media` 两测试失败）
+- [x] **Step 2**: 改 `0_Image_to_Vector.py` selectbox→radio
+- [x] **Step 3**: 改 `streamlit_app.py` 加 @media CSS
+- [x] **Step 4**: `python3 -m pytest tests/ -v` 全绿（29）+ 本机运行验证（health ok）
+- [ ] **Step 5**: git commit

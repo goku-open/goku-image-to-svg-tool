@@ -86,20 +86,22 @@ with right:
 
     # --- Style 区 ---
     st.markdown(f"**{_('style_label')}**")
-    st.selectbox(
+    st.radio(
         _("style_label"),
         ["auto", "crisp", "blended", "photo"],
         index=["auto", "crisp", "blended", "photo"].index(_DEFAULT_STYLE),
+        horizontal=True,
         label_visibility="collapsed",
         key="style_sel",
     )
 
     # --- Detail 区 ---
     st.markdown(f"**{_('detail_label')}**")
-    st.selectbox(
+    st.radio(
         _("detail_label"),
         ["low", "medium", "high"],
         index=1,
+        horizontal=True,
         label_visibility="collapsed",
         key="detail_sel",
     )

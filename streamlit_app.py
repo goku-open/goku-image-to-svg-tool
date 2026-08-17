@@ -20,6 +20,14 @@ st.markdown(
     """
     <style>
     #MainMenu, .stDeployButton, [data-testid="stStatusWidget"] { visibility: hidden; display: none; }
+    .goku-title { margin: 0; margin-left: -22px; }
+    .goku-logo { height: 10px; }
+    @media (max-width: 700px) {
+        .goku-title { text-align: center; margin-left: 0; font-size: 1.3rem; }
+        .goku-logo { text-align: center; }
+        .goku-gzh { display: none !important; }
+        .goku-header img { display: block; margin: 0 auto; }
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -36,7 +44,7 @@ init_state()
 
 title_col1, title_col2, title_col3 = st.columns([1, 10, 5])
 with title_col1:
-    st.markdown("<div style='height:10px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='goku-logo'></div>", unsafe_allow_html=True)
     logo_path = resolve_asset_path("logo.svg")
     try:
         with open(logo_path, "r", encoding="utf-8") as f:
@@ -46,7 +54,7 @@ with title_col1:
         st.image(logo_path, width=42)
 
 with title_col2:
-    st.markdown(f"<h1 style='margin: 0; margin-left: -22px;'>{_('title')}</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='goku-title'>{}</h1>".format(_('title')), unsafe_allow_html=True)
 with title_col3:
     right_col1, right_col2 = st.columns([1, 1])
     with right_col2:
@@ -54,7 +62,7 @@ with title_col3:
         if gzh_src:
             st.markdown(
                 """
-                <div style="display:flex; flex-direction:column; align-items:center; width:140px; margin:0 auto;">
+                <div class="goku-gzh goku-header" style="display:flex; flex-direction:column; align-items:center; width:140px; margin:0 auto;">
                     <img src="{src}" style="width:140px; height:auto; display:block;" />
                     <div style="margin-top:4px; text-align:center;">公众号-反馈/建议</div>
                 </div>
