@@ -19,7 +19,7 @@ def test_required_keys_present():
         "style_label", "detail_label",
         "view_mode", "view_vector", "view_segmentation",
         "label_original", "label_vector", "label_segmentation",
-        "export_svg", "export_png", "export_scale",
+        "export_svg", "export_png", "export_scale", "stats_title",
         "error_trace", "error_render",
         "about_text", "about_params", "about_license", "footer",
     ]

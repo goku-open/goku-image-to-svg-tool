@@ -22,6 +22,7 @@
   "export_svg": "Export SVG",
   "export_png": "Export PNG",
   "export_scale": "PNG scale",
+  "stats_title": "Trace details",
   "error_trace": "Trace failed: {msg}",
   "error_render": "Render failed: {msg}",
   "about_text": "Built on the open-source **Vecto** engine (MIT License).",

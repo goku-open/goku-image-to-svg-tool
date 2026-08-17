@@ -11,6 +11,7 @@ from utils import (
     parse_palette_from_svg,
     run_png_export,
     run_trace_workflow,
+    summarize_stats,
 )
 
 init_state()
@@ -102,9 +103,13 @@ with right:
         key="detail_sel",
     )
 
-    # --- StatsText（常显，对齐原版） ---
+    # --- StatsText（对齐原版：一行简洁摘要；完整诊断收起） ---
     if result["ok"] and result["stats"]:
-        st.caption(result["stats"].strip())
+        summary = summarize_stats(result["stats"])
+        if summary:
+            st.caption(summary)
+        with st.expander(_("stats_title"), expanded=False):
+            st.code(result["stats"].strip(), language="bash")
 
 with left:
     if not result["ok"]:
@@ -141,7 +146,10 @@ with left:
             in_memory=True,
         )
 
-    b1, b2 = st.columns([1, 2])
+    scale = st.number_input(
+        _("export_scale"), min_value=0.1, max_value=10.0, value=1.0, step=0.5
+    )
+    b1, b2 = st.columns(2)
     with b1:
         st.download_button(
             _("export_svg"),
@@ -151,7 +159,6 @@ with left:
             use_container_width=True,
         )
     with b2:
-        scale = st.number_input(_("export_scale"), min_value=0.1, max_value=10.0, value=1.0, step=0.5)
         try:
             st.download_button(
                 _("export_png"),

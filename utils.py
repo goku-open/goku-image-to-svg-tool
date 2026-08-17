@@ -89,6 +89,14 @@ def parse_palette_from_svg(svg_text: str) -> list[str]:
     return seen
 
 
+def summarize_stats(stats_text: str) -> str:
+    match = re.search(r"\((\d+) ms, (\d+) colors, (\d+) regions, (\d+) nodes\)", stats_text)
+    if not match:
+        return ""
+    ms, colors, regions, nodes = match.groups()
+    return f"{ms} ms · {colors} colors · {regions} regions · {nodes} nodes"
+
+
 def run_trace_workflow(
     image_bytes: bytes,
     filename: str,

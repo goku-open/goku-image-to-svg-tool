@@ -10,6 +10,7 @@ from utils import (
     parse_palette_from_svg,
     run_trace_workflow,
     run_png_export,
+    summarize_stats,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -146,3 +147,23 @@ def test_run_png_export_scale():
     svg = (FIXTURES / "sample.svg").read_text(encoding="utf-8")
     png = run_png_export(svg, 2.0)
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_summarize_stats_parses_summary_line():
+    stats = (
+        "input.png -> /tmp/x/out.svg (771 ms, 9 colors, 420 regions, 5622 nodes) "
+        "segmentation -> /tmp/x/seg.png style=Blended exactPalette=False k=16 "
+        "merge=0.055 minArea=6 fitTol=0.5px corner=68deg clamp=0.6px "
+        "chains=988 regions=420 nodes=5622 palette=9 "
+        "timings: palette 210 ms, segment 362 ms, boundaries 121 ms, curves 61 ms, total 771 ms"
+    )
+    summary = summarize_stats(stats)
+    assert "771 ms" in summary
+    assert "9 colors" in summary
+    assert "420 regions" in summary
+    assert "5622 nodes" in summary
+
+
+def test_summarize_stats_empty():
+    assert summarize_stats("") == ""
+    assert summarize_stats("== vecto ==\nno trace run") == ""

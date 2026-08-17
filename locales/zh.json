@@ -22,6 +22,7 @@
   "export_svg": "导出 SVG",
   "export_png": "导出 PNG",
   "export_scale": "PNG 缩放倍数",
+  "stats_title": "转换详情",
   "error_trace": "转换失败：{msg}",
   "error_render": "渲染失败：{msg}",
   "about_text": "本工具基于开源引擎 **Vecto**（MIT License）构建，将位图自动转为矢量。",
