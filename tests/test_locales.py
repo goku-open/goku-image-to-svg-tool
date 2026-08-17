@@ -15,8 +15,8 @@ def test_required_keys_present():
     required = [
         "title", "caption_top", "page_vec_title", "page_vec_desc", "page_about_title",
         "page_about_desc", "upload_label", "warn_no_file",
-        "palette", "palette_auto", "palette_max", "palette_count", "palette_empty",
-        "style_label", "detail_label", "param_polygons", "param_stats",
+        "palette", "palette_auto", "palette_count", "palette_empty",
+        "style_label", "detail_label",
         "view_mode", "view_vector", "view_segmentation",
         "label_original", "label_vector", "label_segmentation",
         "export_svg", "export_png", "export_scale",

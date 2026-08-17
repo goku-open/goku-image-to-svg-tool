@@ -17,6 +17,8 @@ init_state()
 
 MAX_PREVIEW_W = 1200
 _IMAGE_TYPES = ["png", "jpg", "jpeg", "bmp", "gif"]
+_DEFAULT_STYLE = "auto"
+_DEFAULT_DETAIL = "medium"
 
 
 @st.cache_data(show_spinner=False)
@@ -53,20 +55,56 @@ stem = Path(filename).stem
 left, right = st.columns([8, 3], gap="medium")
 
 with right:
+    # --- Palette 区（对齐原版：automatic checkbox + 颜色数滑块 + 色块） ---
     st.markdown(f"**{_('palette')}**")
-    auto_colors = st.checkbox(_("palette_auto"), value=True)
-    if auto_colors:
-        colors_count = None
-        max_colors = st.slider(_("palette_max"), 2, 64, 16)
-    else:
-        max_colors = 16
-        colors_count = st.slider(_("palette_count"), 2, 32, 8)
-    stats = st.checkbox(_("param_stats"))
-    style = st.selectbox(_("style_label"), ["auto", "crisp", "blended", "photo"])
-    detail = st.selectbox(_("detail_label"), ["low", "medium", "high"], index=1)
-    polygons = st.checkbox(_("param_polygons"))
+    auto_colors = st.checkbox(_("palette_auto"), value=True, key="auto_colors_cb")
+    colors_count = st.slider(
+        _("palette_count"), 2, 32, 12, disabled=auto_colors, key="colors_sel"
+    )
+    effective_colors = None if auto_colors else int(st.session_state.get("colors_sel", 12))
 
-result = trace_cached(image_bytes, filename, colors_count, max_colors, detail, style, polygons, stats)
+    # 读取 Style/Detail 最新值（控件在下方渲染，用 key 从 session_state 取回）
+    style = st.session_state.get("style_sel", _DEFAULT_STYLE)
+    detail = st.session_state.get("detail_sel", _DEFAULT_DETAIL)
+
+    result = trace_cached(
+        image_bytes, filename, effective_colors, 16, detail, style, False, True
+    )
+
+    swatches = parse_palette_from_svg(result["svg"]) if result["ok"] else []
+    if swatches:
+        swatch_html = "".join(
+            f'<span title="{c}" style="display:inline-block;width:20px;height:20px;'
+            f'border-radius:5px;border:1px solid #888;background:{c};margin:0 4px 4px 0;"></span>'
+            for c in swatches
+        )
+        st.markdown(f"<div style='display:flex;flex-wrap:wrap;'>{swatch_html}</div>", unsafe_allow_html=True)
+    elif result["ok"]:
+        st.caption(_("palette_empty"))
+
+    # --- Style 区 ---
+    st.markdown(f"**{_('style_label')}**")
+    st.selectbox(
+        _("style_label"),
+        ["auto", "crisp", "blended", "photo"],
+        index=["auto", "crisp", "blended", "photo"].index(_DEFAULT_STYLE),
+        label_visibility="collapsed",
+        key="style_sel",
+    )
+
+    # --- Detail 区 ---
+    st.markdown(f"**{_('detail_label')}**")
+    st.selectbox(
+        _("detail_label"),
+        ["low", "medium", "high"],
+        index=1,
+        label_visibility="collapsed",
+        key="detail_sel",
+    )
+
+    # --- StatsText（常显，对齐原版） ---
+    if result["ok"] and result["stats"]:
+        st.caption(result["stats"].strip())
 
 with left:
     if not result["ok"]:
@@ -124,19 +162,3 @@ with left:
             )
         except RuntimeError as exc:
             st.error(_("error_render").format(msg=str(exc)))
-
-    if stats:
-        with st.expander(_("param_stats"), expanded=False):
-            st.code(result["stats"], language="bash")
-
-with right:
-    swatches = parse_palette_from_svg(result["svg"])
-    if swatches:
-        swatch_html = "".join(
-            f'<span title="{c}" style="display:inline-block;width:20px;height:20px;'
-            f'border-radius:5px;border:1px solid #888;background:{c};margin:0 4px 4px 0;"></span>'
-            for c in swatches
-        )
-        st.markdown(f"<div style='display:flex;flex-wrap:wrap;'>{swatch_html}</div>", unsafe_allow_html=True)
-    else:
-        st.caption(_("palette_empty"))

@@ -897,3 +897,13 @@ Expected: 无未提交改动（托管的样本 fixture 与二进制在内）。
 1. `python3 -m pytest tests/ -v` 全绿。
 2. 启动应用：`nohup python3 -m streamlit run streamlit_app.py --server.port 8501 --server.headless true > /tmp/streamlit.log 2>&1 &`，curl `http://localhost:8501`；手动验收自动转换/改参重转/Export PNG 缩放/中英切换。
 3. `git add -A && git commit -m "refactor: unify to 2-page workbench with auto-convert and drag compare slider"`。
+
+### Task 9.6 二次修订 — 完全对齐原版 UI 面板（2026-08-17）
+
+> 用户在 Windows UI 上核对后指出：原版面板只有 Palette(自动调色板/颜色数/色块)、Style、Detail、StatsText。CLI 独有控件应移除，且色块应紧贴在 Palette 区（Style 之前），不能出现在右栏底部。
+
+- [x] **Step 1**: `0_Image_to_Vector.py` 移除「简化多边形」(`--polygons`)、「自动调色板上限」(`--max-colors`)、「显示诊断信息」checkbox（stats 改为常显 caption）。`--max-colors` 固定传 16。
+- [x] **Step 2**: 色块用 `parse_palette_from_svg` 渲染于 Palette 区滑块下方、Style 控件之前。实现技巧：Style/Detail 控件加 `key=`，用 `st.session_state.get("style_sel","auto")` 在控件声明前读取用户最新值（Streamlit 会在 rerun 前把交互值写入 session_state），从而"色块位置正确 + 改 Style/Detail 自动重转"。
+- [x] **Step 3**: locales 移除 `palette_max`/`param_polygons`/`param_stats`，zh/en 同步；test_locales required keys 更新。
+- [x] **Step 4**: `python3 -m pytest tests/` 25 全绿；AppTest 验证色块 markdown 块位于「调色板」后、「转换风格」前，改 Style 无异常且色块仍现。
+- [x] **Step 5**: spec §4.2/§4.6 记录对齐结论与 session_state 技巧。

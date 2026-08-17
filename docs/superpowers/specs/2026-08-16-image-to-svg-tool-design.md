@@ -85,11 +85,11 @@ yunzhan365-scraper/
 │ 视图切换 [Vector|Segmentation]    │  Palette             │
 │ 拖拽对比滑块 (原图 | 矢量)          │   ⚐ 自动调色板        │
 │   （streamlit-image-comparison）  │   颜色数 2–32        │
-│  ── Export SVG  Export PNG┌缩放┐ │   色块 swatches      │
-│  Stats 展开区（--stats 诊断）      │  Style（Auto/Crisp/  │
+│  ── Export SVG  Export PNG┌缩放┐ │   ▣ 色块 swatches   │
+│                                 │  Style（Auto/Crisp/  │
 │                                 │   Blended/Photo）    │
 │                                 │  Detail（Low/Med/High）│
-│                                 │  ⚐ 显示诊断信息       │
+│                                 │  StatsText（常显）    │
 └─────────────────────────────────┴─────────────────────┘
 ```
 
@@ -97,11 +97,12 @@ yunzhan365-scraper/
 - **上传即转换**：`st.file_uploader` 后无「转换」按钮，直接用 `st.cache_data` 函数缓存转换结果，key = 文件字节 + 全部参数。上传/参数变更即自动重转（对应原版 250ms 防抖，Streamlit 无事件防抖 → 用整页 rerun + 缓存兜底）。
 - **拖拽对比滑块**：`streamlit-image-comparison`（PyPI 0.0.4，MIT，JuxtaposeJS），`img1=原图`、`img2=矢量PNG预览`；**Streamlit 不支持直接显示 SVG → 预览先经 `vecto render --scale 1` 转 PNG**。大图先 PIL thumbnail 缩到 ≤1200 宽再传给组件。
 - **视图切换**：Vector（SVG→PNG 预览）| Segmentation（`vecto trace --seg-png` 的分割图）。**Nodes 视图不做**（需 C# 引擎，CLI 无此能力）。
-- **右侧参数面板**（映射原版右侧 232px 面板，位于预览旁、网页上有边栏）：
-  - Palette：`st.checkbox` 自动调色板（默认开）→ `st.slider` 2–32 颜色数 + 从 SVG `fill` 解析的 **色块**（`parse_palette_from_svg`）。
-  - Style：select Auto / Crisp(no blending) / Blended(anti-aliased) / Photo。
-  - Detail：select Low / Medium / High。
-  - Stats：checkbox 开 `--stats`，结果展开显示解析参数与分段耗时。
+- **右侧参数面板**（映射原版右侧 232px 面板，完全对齐原版 UI 控件集合）：
+  - Palette：`st.checkbox` 自动调色板（默认开）→ `st.slider` 2–32 颜色数（auto 时禁用，对齐原版）→ 从 SVG `fill` 解析的 **色块**（`parse_palette_from_svg`）**紧贴在下**（通过控件 `key` + `st.session_state` 读取 Style/Detail 最新值，实现"色块渲染在 Style 之前 + 改参数自动重转"两者兼得）。
+  - Style：select Auto / Crisp(no blending) / Blended(anti-aliased) / Photo（默认 Auto）。
+  - Detail：select Low / Medium / High（默认 Medium）。
+  - StatsText：**常显**（对齐原版只读 StatsText），展示 `--stats` 解析参数与分段耗时；无开关。
+  - **不做**（CLI 独有、原版 GUI 不暴露，已移除）：`--polygons`（简化多边形）、`--max-colors`（自动调色板上限滑块）、stats checkbox。
 - **导出**：
   - Export SVG（下载原始 SVG）。
   - Export PNG（`st.number_input` 缩放倍数，默认 1 → `vecto render --scale <n>` 下载 PNG），替代原独立「SVG 转 PNG」页。
@@ -131,9 +132,13 @@ yunzhan365-scraper/
 | 中缝 GridSplitter 拖拽分栏 | JuxtaposeJS 拖拽滑块（用户选定） | 见决策 2.3 |
 | 右侧 232px 参数面板 | `st.columns` 右侧栏（Palette/Style/Detail/Stats） | 用户选定「右侧栏内」 |
 | 自动 trace + 250ms 防抖（MainViewModel） | `st.cache_data`（key=文件字节+参数）上传/改参即重转 | Streamlit 无防抖事件 |
-| 调色板色块（Swatches，Brush） | `parse_palette_from_svg()` 从 SVG `fill` 解析 hex 展示 | 用户选定 |
-| 底部 Status 栏 + StatsText | `st.caption` 状态行 + Stats 展开区（`--stats`） | — |
+| 调色板色块（Swatches，Brush） | `parse_palette_from_svg()` 从 SVG `fill` 解析 hex 展示，**置于 Palette 区滑块正下方（Style 之前）** | 用户选定；用控件 `key`+session_state 读取 Style/Detail 最新值实现 |
+| 底部 Status 栏 + StatsText | `st.caption` StatsText 常显（`--stats`） | 对齐原版，无开关 |
 | Zoom Fit/1:1/± （桌面级缩放平移） | **不做** | Streamlit 预览不缩放，PNG 导出用 `--scale` 兜底 |
+
+> **对齐原版 UI 控件集合（2026-08-17 二次确认）**：原版 `MainWindow.xaml` 面板仅含 Palette(checkbox+颜色数滑块+色块)、Style、Detail、StatsText。CLI 独有、GUI 不暴露的 `--polygons`、`--max-colors`、stats checkbox 已从页面移除（`--max-colors` 固定传 16，`--polygons` 不传，stats 常显）。
+>
+> 实现技巧：左栏/右栏渲染顺序按脚本执行顺序；色块需显示在 Style 控件之前，但 trace 需读取 Style/Detail 的参数值。解法 = 控件加 `key=`，用 `st.session_state.get("style_sel","auto")` 在控件前读取用户最新提交值（Widget 交互值会先写入 session_state 再 rerun，已用 AppTest 验证），实现"色块位置 + 改参自动重转"两者兼得。
 
 依赖：`streamlit-image-comparison`（PyPI 0.0.4，MIT，基于 Knightlab JuxtaposeJS，接受 PIL 图像）。
 
