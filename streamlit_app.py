@@ -83,9 +83,8 @@ if lang_options[selected_lang] != st.session_state.lang:
 st.divider()
 
 trace_page = st.Page("pages_content/0_Image_to_Vector.py", title=_("page_vec_title"), icon="🖼️")
-png_page = st.Page("pages_content/1_SVG_to_PNG.py", title=_("page_png_title"), icon="🔄")
 about_page = st.Page("pages_content/2_About.py", title=_("page_about_title"), icon="ℹ️")
-pg = st.navigation([trace_page, png_page, about_page], position="sidebar")
+pg = st.navigation([trace_page, about_page], position="sidebar")
 pg.run()
 
 st.divider()

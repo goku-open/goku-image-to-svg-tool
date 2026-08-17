@@ -1,3 +1,4 @@
 streamlit
 Pillow
+streamlit-image-comparison
 pytest

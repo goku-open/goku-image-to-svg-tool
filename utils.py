@@ -1,6 +1,7 @@
 import base64
 import mimetypes
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -51,6 +52,7 @@ def trace_image(
     polygons: bool = False,
     epsilon=None,
     stats: bool = False,
+    seg_png=None,
 ) -> tuple[int, str, str]:
     args = ["trace", str(src.resolve()), "-o", str(dst.resolve())]
     if colors:
@@ -67,12 +69,92 @@ def trace_image(
         args += ["--epsilon", str(epsilon)]
     if stats:
         args += ["--stats"]
+    if seg_png is not None:
+        args += ["--seg-png", str(seg_png.resolve())]
     return run_vecto(args)
 
 
 def render_svg(src: Path, dst: Path, *, scale: float = 1.0) -> tuple[int, str, str]:
     args = ["render", str(src.resolve()), "-o", str(dst.resolve()), "--scale", str(scale)]
     return run_vecto(args)
+
+
+def parse_palette_from_svg(svg_text: str) -> list[str]:
+    colors = re.findall(r'fill="?([#][0-9a-fA-F]{3,8})', svg_text)
+    seen = []
+    for raw in colors:
+        normalized = "#" + raw[1:].lower()
+        if normalized not in seen:
+            seen.append(normalized)
+    return seen
+
+
+def run_trace_workflow(
+    image_bytes: bytes,
+    filename: str,
+    colors_count: int | None,
+    max_colors: int,
+    detail: str,
+    style: str,
+    polygons: bool,
+    stats: bool,
+) -> dict:
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="vecto_work_") as td:
+        tmp = Path(td)
+        ext = Path(filename).suffix.lower() or ".png"
+        src = tmp / f"input{ext}"
+        src.write_bytes(image_bytes)
+        out_svg = tmp / "output.svg"
+        seg_png = tmp / "seg.png"
+        code, out, err = trace_image(
+            src,
+            out_svg,
+            colors=colors_count,
+            max_colors=max_colors,
+            detail=detail,
+            style=style,
+            polygons=polygons,
+            stats=stats,
+            seg_png=seg_png,
+        )
+        if code != 0:
+            return {"ok": False, "err": err, "stats": out, "svg": "", "preview": b"", "seg": b""}
+        svg_text = out_svg.read_text(encoding="utf-8")
+        preview = tmp / "preview.png"
+        prev_code, _, prev_err = render_svg(out_svg, preview, scale=1.0)
+        if prev_code != 0:
+            return {
+                "ok": False,
+                "err": prev_err,
+                "stats": out,
+                "svg": svg_text,
+                "preview": b"",
+                "seg": seg_png.read_bytes() if seg_png.exists() else b"",
+            }
+        return {
+            "ok": True,
+            "err": "",
+            "stats": out,
+            "svg": svg_text,
+            "preview": preview.read_bytes(),
+            "seg": seg_png.read_bytes() if seg_png.exists() else b"",
+        }
+
+
+def run_png_export(svg_text: str, scale: float) -> bytes:
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="vecto_export_") as td:
+        tmp = Path(td)
+        src = tmp / "input.svg"
+        src.write_text(svg_text, encoding="utf-8")
+        dst = tmp / "output.png"
+        code, _, err = render_svg(src, dst, scale=scale)
+        if code != 0:
+            raise RuntimeError(err)
+        return dst.read_bytes()
 
 
 # --- UI 工具函数 ---

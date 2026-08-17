@@ -833,3 +833,67 @@ Expected: 无未提交改动（托管的样本 fixture 与二进制在内）。
 - **Spec 覆盖**：核心函数（get/run/trace/render）、两个功能页、关于页、i18n、测试、清理、README 均已覆盖。spec 中 16 条测试用例通过 test_utils（6条）+ test_page_trace（1）+ test_page_render（2）+ test_page_about（1）+ test_locales（2）+ 页面冒烟（Task 8）= 实际执行 >16。
 - **占位符**：无 TBD/TODO；每个修改步骤含完整代码。
 - **类型一致性**：`trace_image`/`render_svg`/`run_vecto` 签名在 Task 2 定义，Task 3/4 消费处与之匹配；`log_placeholder` 可选参数保留（页面传入 holder，后续可扩展实时日志）。
+
+---
+
+## Task 9: 修订 — 统一工作台 + 2 页结构（2026-08-17）
+
+> 依据 spec 修订（§2.3/§2.4/§4.2/§4.6，2026-08-17 与用户确认）：3 页 → 2 页，去掉「转换」按钮改为自动转换，左右对比改 `streamlit-image-comparison` 拖拽滑块，加入 Segmentation 视图（`--seg-png`）、调色板色块（`parse_palette_from_svg`）、Export PNG 带缩放。**TDD**：先写/改测试 → 看失败 → 实现 → 看通过。
+
+### Task 9.1 依赖 + utils（seg_png 参数、parse_palette_from_svg）
+
+**Files:**
+- Modify: `requirements.txt`（+ `streamlit-image-comparison`）
+- Modify: `utils.py`（`trace_image` 加 `seg_png`；新增 `parse_palette_from_svg`）
+- Modify: `tests/test_utils.py`、`tests/test_page_trace.py`
+
+**TDD 步骤**
+1. RED：在 `tests/test_utils.py` 追加
+   - `test_trace_image_seg_png(tmp_path)`：`trace_image(crisp.png, out.svg, seg_png=out_seg.png)` → code==0，out_seg.png 存在且 PNG 魔数开头。
+   - `test_parse_palette_from_svg_basic()`：解析 `tests/fixtures/sample.svg` → 得到 `["#3498db", "#e74c3c"]`。
+   - `test_parse_palette_from_svg_empty()`：无 `fill=` 的 SVG → 返回 `[]`。
+   运行确认这 3 个 FAIL（函数/参数尚不存在）。
+2. GREEN：`utils.py`
+   - `trace_image(..., seg_png=None)`：若给出 → `args += ["--seg-png", str(seg_png.resolve())]`。
+   - `parse_palette_from_svg(svg_text: str) -> list[str]`：正则 `re.findall(r'fill="?(#[0-9a-fA-F]{3,8})', svg_text)`（兼容 `#fff`/`#ffffff`/`#rrggbbaa`），去重，保持顺序。无匹配返回 `[]`。
+3. 运行 `python3 -m pytest tests/test_utils.py tests/test_page_trace.py -v` 全绿。
+
+### Task 9.2 重写工作台 `0_Image_to_Vector.py`
+
+**Files:**
+- Modify: `pages_content/0_Image_to_Vector.py`（整文件替换为工作台版）
+
+**实现要点（无按钮自动转换）**
+- `@st.cache_data` 装饰一个模块级函数 `trace_cached(image_bytes, filename, colors_auto, colors_count, max_colors, detail, style, polygons, stats, seg_mode) -> dict`：
+  - 内部 `tempfile.TemporaryDirectory`：写 `input<ext>` → `output.svg`、预览 `preview.png`（`render_svg` scale=1）、Segmentation PNG（`seg_png=...`）→ 返回 `{"svg": str, "stats": str, "preview_png": bytes, "seg_png": bytes}`。
+  - 上传的字节可哈希 → 换图/改参数自动重跑（Streamlit rerun）。
+- 布局：
+  - 顶部：`st.file_uploader`。
+  - `st.columns([8, 3])`：
+    - 左列：视图切换 `st.radio("status_view_mode", ["vector","segmentation"])` → 「预览」用 `image_comparison(img1=原图PIL, img2=预览PIL, label1=_("label_original"), label2=_("label_vector"))`；Segmentation 时 img2=分割图。
+    - 右列（参数面板）：Palette（`st.checkbox` 自动调色板 + `st.slider` 颜色数 2–32 + 色块 `st.columns` 圆点）、Style select、Detail select、Stats checkbox、`st.download_button` Export SVG、`st.number_input` 缩放 + `st.download_button` Export PNG。
+  - Stats：展开区显示 `--stats` 输出。
+- 大图预览：PIL thumbnail 到宽 ≤1200。
+
+### Task 9.3 删独立 render 页 + 2 页导航
+
+**Files:**
+- Delete: `pages_content/1_SVG_to_PNG.py`、`tests/test_page_render.py`
+- Modify: `streamlit_app.py`（导航去掉 png_page → 2 页）
+- Modify: `tests/test_pages_smoke.py`（只跑 2 页）
+- Modify: `tests/test_page_about.py`（`test_main_navigation_updates` 断言去掉 `1_SVG_to_PNG.py`）
+
+### Task 9.4 i18n 增删 key
+
+**Files:**
+- Modify: `locales/zh.json`、`locales/en.json`
+- Modify: `tests/test_locales.py`
+
+**新增 key**：`label_original`、`label_vector`、`label_segmentation`、`view_mode`、`palette`、`export_svg`、`export_png`、`export_png_scale`、`warn_convert_failed`、`no_palette`。
+**删除 key**：`page_png_title`、`page_png_desc`、`btn_render`、`upload_svg_label`、`info_rendering`、`success_render`、`error_render`（Export PNG 复用 `error_trace` 或新增 `error_render` 保留并不冲突——保留 `error_render` 亦可；最终以 key 同步测试为准）。
+
+### Task 9.5 验证与提交
+
+1. `python3 -m pytest tests/ -v` 全绿。
+2. 启动应用：`nohup python3 -m streamlit run streamlit_app.py --server.port 8501 --server.headless true > /tmp/streamlit.log 2>&1 &`，curl `http://localhost:8501`；手动验收自动转换/改参重转/Export PNG 缩放/中英切换。
+3. `git add -A && git commit -m "refactor: unify to 2-page workbench with auto-convert and drag compare slider"`。

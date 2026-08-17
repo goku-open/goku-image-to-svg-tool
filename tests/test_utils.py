@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from utils import get_vecto_binary, run_vecto, trace_image, render_svg
+from utils import (
+    get_vecto_binary,
+    run_vecto,
+    trace_image,
+    render_svg,
+    parse_palette_from_svg,
+    run_trace_workflow,
+    run_png_export,
+)
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -85,3 +93,56 @@ def test_render_svg_invalid(tmp_path):
     dst = tmp_path / "bad.png"
     code, out, err = render_svg(src, dst)
     assert code != 0
+
+
+def test_trace_image_seg_png(tmp_path):
+    src = FIXTURES / "crisp.png"
+    dst = tmp_path / "out.svg"
+    seg = tmp_path / "seg.png"
+    code, out, err = trace_image(src, dst, seg_png=seg)
+    assert code == 0, err
+    assert dst.exists()
+    assert seg.exists()
+    with open(seg, "rb") as f:
+        assert f.read(8) == b"\x89PNG\r\n\x1a\n"
+
+
+def test_parse_palette_from_svg_basic():
+    svg = (FIXTURES / "sample.svg").read_text(encoding="utf-8")
+    colors = parse_palette_from_svg(svg)
+    assert "#3498db" in colors
+    assert "#e74c3c" in colors
+
+
+def test_parse_palette_from_svg_dedups_and_normalizes():
+    colors = parse_palette_from_svg(
+        '<svg><rect fill="#ff0000"/><circle fill="#ff0000"/><path fill="#00FF00" /></svg>'
+    )
+    assert colors == ["#ff0000", "#00ff00"]
+
+
+def test_parse_palette_from_svg_empty():
+    assert parse_palette_from_svg("<svg><rect/></svg>") == []
+    assert parse_palette_from_svg("") == []
+
+
+def test_run_trace_workflow_success():
+    image_bytes = (FIXTURES / "crisp.png").read_bytes()
+    result = run_trace_workflow(image_bytes, "crisp.png", None, 16, "medium", "auto", False, False)
+    assert result["ok"] is True
+    assert result["err"] == ""
+    assert "svg" in result["svg"].lower()
+    assert result["preview"]  # PNG bytes produced
+    assert result["seg"]  # seg PNG bytes produced
+
+
+def test_run_trace_workflow_failure():
+    result = run_trace_workflow(b"not an image", "bad.png", None, 16, "medium", "auto", False, False)
+    assert result["ok"] is False
+    assert result["err"]
+
+
+def test_run_png_export_scale():
+    svg = (FIXTURES / "sample.svg").read_text(encoding="utf-8")
+    png = run_png_export(svg, 2.0)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"

@@ -1,7 +1,7 @@
 # 悟空图片转SVG工具 — 设计文档
 
 日期：2026-08-16
-状态：已确认（用户已批准核心方案）
+状态：已确认（基础方案 + 2026-08-17 修订：2 页结构/自动转换/拖拽对比滑块/Segmentation/色块解析）
 
 ## 1. 背景与目标
 
@@ -33,21 +33,32 @@
 - 存放：**项目内 `tools/vecto`，入库（commit 到 git）**，保证部署即用。
 - 兼容性：目前目标环境为 Linux / WSL。Windows/macOS 部署需换对应二进制（列入未来扩展）。
 
+### 2.3 左右对比方式（2026-08-17 确认）
+
+- 采用 **`streamlit-image-comparison` 拖拽滑块**（PyPI 0.0.4，MIT，基于 Knightlab JuxtaposeJS，接受 PIL 图像；调研已核实可安装、可传图片字节）。
+- 替代方案（曾考虑）：`st.columns` 固定并排、`streamlit-extras` 的 `image_compare_slider`。用户选定拖拽滑块（更直观的对比体验）。
+- 大图预览：先 PIL thumbnail 缩到宽 ≤1200 再传入组件，避免 JuxtaposeJS 处理超大图变慢。
+
+### 2.4 页面结构（2026-08-17 确认）
+
+- **2 页**：`0_Image_to_Vector.py`（统一工作台）+ `2_About.py`。
+- 原「SVG 转 PNG」独立页（`1_SVG_to_PNG.py`）删除，能力并入工作台 Export PNG（带缩放倍数）。
+- Nodes 视图不做（CLI 无此能力，需 C# 引擎）。
+
 ## 3. 架构
 
 ```
 yunzhan365-scraper/
-├── streamlit_app.py          # 主入口：保留外壳（logo / i18n / 布局 / 导航）
+├── streamlit_app.py          # 主入口：保留外壳（logo / i18n / 布局 / 导航，2 页）
 ├── pages_content/
-│   ├── 0_Image_to_Vector.py  # 图片 → SVG（trace）
-│   ├── 1_SVG_to_PNG.py       # SVG → PNG（render）
-│   └── 2_About.py            # 关于 / 参数说明 / 许可（可选页）
-├── utils.py                  # 精简：二进制定位 + subprocess 封装 + 临时文件管理
+│   ├── 0_Image_to_Vector.py  # 统一工作台：上传 → 自动转换 → 拖拽对比 + 导出（trace/render/seg）
+│   └── 2_About.py            # 关于 / 参数说明 / 许可
+├── utils.py                  # 精简：二进制定位 + subprocess 封装 + 色块解析
 ├── tools/
 │   └── vecto                 # 官方 linux-x64 二进制（35MB，入库）
-├── locales/                  # zh.json / en.json 改为矢量转换文案
+├── locales/                  # zh.json / en.json（矢量转换文案，无 SVG→PNG 独立页）
 ├── i18n.py                   # 保留原样
-├── requirements.txt          # 精简为 streamlit + pillow
+├── requirements.txt          # streamlit + pillow + streamlit-image-comparison + pytest
 ├── README.md                 # 重写为新的工具说明
 └── docs/superpowers/specs/   # 本文档
 ```
@@ -58,29 +69,47 @@ yunzhan365-scraper/
 
 - `get_vecto_binary()` — 校验 `tools/vecto` 存在且可执行；否则返回错误提示（含安装指引）。
 - `run_vecto(args, cwd)` — 封装 `subprocess.run`，返回 `(code, stdout, stderr)`；统一设置超时、捕获输出、处理非零返回码。
-- `trace_image(src, dst, opts)` — 拼 `vecto trace <src> -o <dst>` + 各参数。
+- `trace_image(src, dst, opts)` — 拼 `vecto trace <src> -o <dst>` + 各参数；支持 `seg_png` 输出分割图。
 - `render_svg(src, dst, scale)` — 拼 `vecto render <svg> -o <png> --scale <n>`。
+- `parse_palette_from_svg(svg_text)` — 从 trace 输出 SVG 的 `fill` 颜色解析出 hex 列表，用于调色板色块展示。
 - 输入输出统一放临时目录（`tempfile.TemporaryDirectory`），结束后清理。
 - 删除：Node.js 解码（`decode_configs` 等）、PDF 合成相关全部函数。
 
-### 4.2 页面 0「图片转矢量 / Image to Vector」(trace)
+### 4.2 页面 0「图片转矢量 / Image to Vector」(统一工作台，2 页结构主页面)
 
-- 上传图片类型：png / jpg / bmp / gif；上传后 `st.image` 预览原图。
-- 参数控件（对应 CLI）：
-  - `--colors`：滑块 2–32，或 "auto"（默认 auto，即 `--colors auto`）
-  - `--max-colors`：自动调色板上限，默认 16
-  - `--detail`：select（low / medium / high，默认 medium）
-  - `--style`：select（auto / crisp / blended / photo，默认 auto）
-  - `--polygons`：checkbox（跳过曲线拟合，输出简化多边形）
-  - `--epsilon`：多边形简化容差（px），默认按 CLI 默认
-  - `--stats`：checkbox（显示解析出的参数与分阶段耗时）
-  - `--seg-png`：可选输出分割图（体现"二进制有啥功能就做全"）
-- 交互：点「转换」→ `st.spinner` → 成功显示 SVG 预览 + 下载按钮；失败显示 returncode + stderr。
+对标原版 Vecto 桌面 UI（`MainWindow.xaml` / `MainViewModel.cs`），改为单页面工作台：
 
-### 4.3 页面 1「SVG 转 PNG / SVG to PNG」(render)
+```
+上传 (top, full width)
+┌─────────────────────────────────┬─────────────────────┐
+│ 视图切换 [Vector|Segmentation]    │  Palette             │
+│ 拖拽对比滑块 (原图 | 矢量)          │   ⚐ 自动调色板        │
+│   （streamlit-image-comparison）  │   颜色数 2–32        │
+│  ── Export SVG  Export PNG┌缩放┐ │   色块 swatches      │
+│  Stats 展开区（--stats 诊断）      │  Style（Auto/Crisp/  │
+│                                 │   Blended/Photo）    │
+│                                 │  Detail（Low/Med/High）│
+│                                 │  ⚐ 显示诊断信息       │
+└─────────────────────────────────┴─────────────────────┘
+```
 
-- 上传 SVG → 预览 → `--scale`（数字输入，默认 1）→ 下载 PNG。
-- 支持 Vecto render 的 M/L/H/V/C/Z 路径。
+关键交互：
+- **上传即转换**：`st.file_uploader` 后无「转换」按钮，直接用 `st.cache_data` 函数缓存转换结果，key = 文件字节 + 全部参数。上传/参数变更即自动重转（对应原版 250ms 防抖，Streamlit 无事件防抖 → 用整页 rerun + 缓存兜底）。
+- **拖拽对比滑块**：`streamlit-image-comparison`（PyPI 0.0.4，MIT，JuxtaposeJS），`img1=原图`、`img2=矢量PNG预览`；**Streamlit 不支持直接显示 SVG → 预览先经 `vecto render --scale 1` 转 PNG**。大图先 PIL thumbnail 缩到 ≤1200 宽再传给组件。
+- **视图切换**：Vector（SVG→PNG 预览）| Segmentation（`vecto trace --seg-png` 的分割图）。**Nodes 视图不做**（需 C# 引擎，CLI 无此能力）。
+- **右侧参数面板**（映射原版右侧 232px 面板，位于预览旁、网页上有边栏）：
+  - Palette：`st.checkbox` 自动调色板（默认开）→ `st.slider` 2–32 颜色数 + 从 SVG `fill` 解析的 **色块**（`parse_palette_from_svg`）。
+  - Style：select Auto / Crisp(no blending) / Blended(anti-aliased) / Photo。
+  - Detail：select Low / Medium / High。
+  - Stats：checkbox 开 `--stats`，结果展开显示解析参数与分段耗时。
+- **导出**：
+  - Export SVG（下载原始 SVG）。
+  - Export PNG（`st.number_input` 缩放倍数，默认 1 → `vecto render --scale <n>` 下载 PNG），替代原独立「SVG 转 PNG」页。
+- 失败处理：展示 returncode + stderr + 友好提示（如缺二进制）。
+
+### 4.3 页面 1「SVG 转 PNG」→ 已合并进 4.2 的 Export PNG
+
+原独立页删除，`vecto render` 的 M/L/H/V/C/Z 路径能力通过 Export PNG（带缩放）保留。
 
 ### 4.4 页面 2「关于 / About」
 
@@ -89,20 +118,36 @@ yunzhan365-scraper/
 ### 4.5 外壳保留（已确认）
 
 - 保留 `i18n.py` + `locales/` 中英文切换机制。
-- 保留 logo、顶部布局、侧边栏 `st.navigation` 多页结构。
+- 保留 logo、顶部布局、侧边栏 `st.navigation` 多页结构（**2 页**：工作台 + 关于）。
 - 前端（`streamlit_app.py`）顶部"开源"入口此前已按用户要求删除，保持删除状态。
+
+### 4.6 调研结论：原版 Vecto UI 元素 → Streamlit 替代（2026-08-17）
+
+| 原版元素（`Vecto.App/MainWindow.xaml`） | Streamlit 替代 | 说明 |
+|------|------|------|
+| 顶栏 Open/Paste/Export SVG/Copy SVG/Export PNG | 上传即转换；右侧 Export SVG + Export PNG（缩放）按钮 | 无手动按钮，全自动 |
+| 左侧 ScrollViewer 原始位图 | 拖拽对比滑块的左半（img1=原图） | `streamlit-image-comparison` |
+| 右侧 ScrollViewer Vector/Segmentation/Nodes ComboBox | 视图切换 selectbox（Vector/Segmentation） | Nodes 不做 |
+| 中缝 GridSplitter 拖拽分栏 | JuxtaposeJS 拖拽滑块（用户选定） | 见决策 2.3 |
+| 右侧 232px 参数面板 | `st.columns` 右侧栏（Palette/Style/Detail/Stats） | 用户选定「右侧栏内」 |
+| 自动 trace + 250ms 防抖（MainViewModel） | `st.cache_data`（key=文件字节+参数）上传/改参即重转 | Streamlit 无防抖事件 |
+| 调色板色块（Swatches，Brush） | `parse_palette_from_svg()` 从 SVG `fill` 解析 hex 展示 | 用户选定 |
+| 底部 Status 栏 + StatsText | `st.caption` 状态行 + Stats 展开区（`--stats`） | — |
+| Zoom Fit/1:1/± （桌面级缩放平移） | **不做** | Streamlit 预览不缩放，PNG 导出用 `--scale` 兜底 |
+
+依赖：`streamlit-image-comparison`（PyPI 0.0.4，MIT，基于 Knightlab JuxtaposeJS，接受 PIL 图像）。
 
 ## 5. 数据流 / 错误处理
 
-1. 上传文件写入临时目录（有扩展名，供 Vecto 识别类型）。
-2. 调 `run_vecto`：`subprocess.run` 带 `timeout`（如 120s），`cwd` 指向临时目录。
-3. 成功：读取 SVG/PNG → 展示/下载。
-4. 失败：展示 `returncode`、`stderr`、提示信息（如"请确认 tools/vecto 存在且可执行"）。
+1. 上传文件写入缓存目录（文件字节 + 参数为 `st.cache_data` key）。
+2. `st.cache_data` 中调 `trace_image` → `vecto trace`（`subprocess.run` 带 `timeout` 120s）。
+3. 预览：`render_svg --scale 1` 输出 PNG（Streamlit 不能直接显示 SVG）；Segmentation 视图输出 `--seg-png`。
+4. 成功：展示 SVG/下载；失败：展示 `returncode`、`stderr`、提示（如"请确认 tools/vecto 存在且可执行"）。
 5. 结束：清理临时目录。
 
 ## 6. 测试（每个功能必须配套测试）
 
-测试框架：**pytest**（新增到 `requirements-dev.txt` 或单独 dev 依赖），测试文件放 `tests/` 目录，命令 `python -m pytest`。
+测试框架：**pytest**，测试文件放 `tests/` 目录，命令 `python -m pytest`。
 
 ### 6.1 测试前置（fixture）
 
@@ -118,38 +163,40 @@ yunzhan365-scraper/
 | 3 | `run_vecto()` 成功路径 | 调 `vecto --version` | `code==0`，stdout 含 `vecto 0.4.2` |
 | 4 | `run_vecto()` 非零返回码 | 调未知命令 | 返回非零 code，stderr 非空 |
 | 5 | `run_vecto()` 超时 | 短 timeout 下跑慢命令 | 抛超时异常，不悬挂 |
-| 6 | `trace_image()` 基础 | crisp.png → SVG | 成功，输出文件存在、非空、以 `<svg` 开头 |
+| 6 | `trace_image()` 基础 | crisp.png → SVG | 成功，输出文件存在、非空、含 `svg` |
 | 7 | `trace_image()` 各参数映射 | colors/detail/style/polygons 各组合 | 命令参数正确拼装且执行成功 |
 | 8 | `trace_image()` --stats | 开启 stats | stdout 含 `timings:` 诊断信息 |
 | 9 | `trace_image()` 透明图 | transparent.png | 成功输出 SVG，保留透明度语义 |
 | 10 | `trace_image()` 无效输入 | 传入不存在的文件 | 非零返回码，友好报错 |
-| 11 | `render_svg()` 基础 | sample.svg → PNG | 成功，输出 PNG 文件存在、非空、以 PNG 魔数开头 |
-| 12 | `render_svg()` --scale | scale=2 | 输出 PNG 尺寸约为 scale=1 的 2 倍 |
-| 13 | `render_svg()` 无效 SVG | 损坏内容 | 非零返回码，友好报错 |
-| 14 | 临时目录清理 | 转换完成后 | 临时目录被删除，无残留文件 |
-| 15 | i18n 双语言 | 所有 UI key | zh/en 两个 locale 的 key 集合一致，无缺失 |
-| 16 | 页面可渲染 | 用 `streamlit.testing` 跑三个页面 | 页面脚本无异常执行 |
-
-> 注：16 为 UI 冒烟测试（Streamlit 提供 `streamlit.testing` AppTest）；如引入成本过高可在实现计划中降级为"手动验证 + 命令行冒烟"，实现时确认。
+| 11 | `trace_image()` --seg-png | crisp.png, seg_png 目标路径 | seg PNG 文件存在且为 PNG 魔数 |
+| 12 | `parse_palette_from_svg()` 基础 | sample.svg（含 fill） | 返回去重后的 hex 颜色列表 |
+| 13 | `parse_palette_from_svg()` 空/无fill | 无 `<path fill>` 的 SVG | 返回空列表，不抛异常 |
+| 14 | `render_svg()` 基础 | sample.svg → PNG | 成功，输出 PNG 文件存在、非空、PNG 魔数开头 |
+| 15 | `render_svg()` --scale | scale=2 | 输出 PNG 尺寸约为 scale=1 的 2 倍 |
+| 16 | `render_svg()` 无效 SVG | 损坏内容 | 非零返回码，友好报错 |
+| 17 | 临时目录清理 | 转换完成后 | 临时目录被删除，无残留文件 |
+| 18 | i18n 双语言 | 所有 UI key | zh/en 两个 locale 的 key 集合一致，无缺失 |
+| 19 | 页面可渲染（2 页） | 用 `streamlit.testing` 跑工作台+关于页 | 页面脚本无异常执行 |
+| 20 | 导航 | `streamlit_app.py` | 含 `0_Image_to_Vector.py`、`2_About.py`，不含 `1_SVG_to_PNG.py` |
 
 ### 6.3 手动验收（发布前必过）
 
-- 浏览器打开各页：上传→转换→预览→下载全流程。
+- 浏览器打开：上传→自动转换→拖拽对比→改参数自动重转→Export SVG/PNG 全流程。
 - 中英文切换后文案正常。
 - 无 `tools/vecto` 时的错误提示友好。
 
 ## 7. 交付物清单
 
-- [ ] `tools/vecto` 二进制落地（chmod +x），提交入库
-- [ ] `utils.py` 精简与新增函数完成
-- [ ] `pages_content/0_Image_to_Vector.py`、`1_SVG_to_PNG.py`、`2_About.py`
-- [ ] `streamlit_app.py` 导航更新
-- [ ] `locales/zh.json`、`en.json` 新文案
-- [ ] `requirements.txt` 精简（+ dev 依赖 pytest）
-- [ ] `tests/` 目录与上述测试用例全部通过（`python -m pytest` 全绿）
-- [ ] `tests/fixtures/` 样本图与 SVG fixture 入库
-- [ ] `README.md` 重写（含测试运行说明）
-- [ ] 删除旧文件：`0_PDF_Download.py`、`1_Data_Analysis.py`、Node.js 相关代码
+- [x] `tools/vecto` 二进制落地（chmod +x），提交入库
+- [ ] `utils.py`：`trace_image` 支持 `seg_png`、新增 `parse_palette_from_svg`
+- [x] `pages_content/0_Image_to_Vector.py`（转换按钮版）、`2_About.py`；**本次改为工作台版 + 删 `1_SVG_to_PNG.py`**
+- [ ] `streamlit_app.py` 导航 2 页
+- [ ] `locales/zh.json`、`en.json` 新文案（Export PNG/缩放/视图/色块等）
+- [ ] `requirements.txt`（+ `streamlit-image-comparison`）
+- [ ] `tests/` 上述测试用例全部通过（`python -m pytest` 全绿）
+- [x] `tests/fixtures/` 样本图与 SVG fixture 入库
+- [x] `README.md` 重写（含测试运行说明）
+- [x] 删除旧文件：`0_PDF_Download.py`、`1_Data_Analysis.py`、Node.js 相关代码
 - [ ] 本机运行验证 + i18n 双语言验证
 
 ## 8. 明确不做（YAGNI / 范围外）
