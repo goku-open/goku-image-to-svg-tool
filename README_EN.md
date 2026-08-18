@@ -40,7 +40,11 @@ Wraps the Vecto command-line engine (an open-source .NET vectorization core) in 
 
 > Comparison is based on publicly documented capabilities; features evolve, so always check the actual product.
 
-## Installation
+## Installation / Use Online
+
+**Use online (recommended)**: [image-to-svg.streamlit.app](https://image-to-svg.streamlit.app) — hosted free on Streamlit Community Cloud, no install, open and go.
+
+To run locally:
 
 ```bash
 git clone https://github.com/goku-open/goku-image-to-svg-tool.git

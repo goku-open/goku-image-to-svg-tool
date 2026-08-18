@@ -40,7 +40,11 @@
 
 > 对比基于各产品公开能力,以实际体验为准;Illustrator / Inkscape 与在线服务的功能随版本变化。
 
-## 安装
+## 安装 / 在线使用
+
+**在线使用(推荐)**: [image-to-svg.streamlit.app](https://image-to-svg.streamlit.app)——Streamlit Community Cloud 免费托管,免安装、打开即用。
+
+需要本地运行:
 
 ```bash
 git clone https://github.com/goku-open/goku-image-to-svg-tool.git
