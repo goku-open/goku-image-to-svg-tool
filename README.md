@@ -42,7 +42,7 @@
 
 ## 安装 / 在线使用
 
-**在线使用(推荐)**: [image-to-svg.streamlit.app](https://image-to-svg.streamlit.app)——Streamlit Community Cloud 免费托管,免安装、打开即用。
+**在线使用(推荐)**: [image-to-svg.streamlit.app](https://image-to-svg.streamlit.app)——免安装、打开即用。
 
 需要本地运行:
 
@@ -50,7 +50,6 @@
 git clone https://github.com/goku-open/goku-image-to-svg-tool.git
 cd goku-image-to-svg-tool
 pip install -r requirements.txt
-python -m pytest          # 42 项测试,必须全绿
 streamlit run streamlit_app.py
 ```
 

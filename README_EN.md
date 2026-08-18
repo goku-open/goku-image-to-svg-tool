@@ -42,7 +42,7 @@ Wraps the Vecto command-line engine (an open-source .NET vectorization core) in 
 
 ## Installation / Use Online
 
-**Use online (recommended)**: [image-to-svg.streamlit.app](https://image-to-svg.streamlit.app) — hosted free on Streamlit Community Cloud, no install, open and go.
+**Use online (recommended)**: [image-to-svg.streamlit.app](https://image-to-svg.streamlit.app) — no install, open and go.
 
 To run locally:
 
@@ -50,7 +50,6 @@ To run locally:
 git clone https://github.com/goku-open/goku-image-to-svg-tool.git
 cd goku-image-to-svg-tool
 pip install -r requirements.txt
-python -m pytest          # 42 tests, all must pass
 streamlit run streamlit_app.py
 ```
 
