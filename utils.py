@@ -14,7 +14,7 @@ os.environ.setdefault("DOTNET_SYSTEM_GLOBALIZATION_INVARIANT", "1")
 os.environ.setdefault("CORECLR_GLOBAL_INVARIANT", "1")  # 旧版运行时兼容兜底
 
 # --- 并发保护 ---
-_TRACE_SEM = threading.Semaphore(3)
+_TRACE_SEM = threading.Semaphore(2)
 
 # --- Vecto 二进制封装 ---
 
