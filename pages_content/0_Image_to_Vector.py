@@ -116,7 +116,10 @@ with right:
 
 with left:
     if not result["ok"]:
-        st.error(_("error_trace").format(msg=result["err"]))
+        if result.get("busy"):
+            st.warning(result["err"])
+        else:
+            st.error(_("error_trace").format(msg=result["err"]))
         st.stop()
 
     view_mode = st.radio(_("view_mode"), (_("view_vector"), _("view_segmentation")), horizontal=True)
@@ -173,4 +176,7 @@ with left:
                 use_container_width=True,
             )
         except RuntimeError as exc:
-            st.error(_("error_render").format(msg=str(exc)))
+            if "繁忙" in str(exc):
+                st.warning(str(exc))
+            else:
+                st.error(_("error_render").format(msg=str(exc)))

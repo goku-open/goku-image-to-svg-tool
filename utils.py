@@ -3,6 +3,7 @@ import mimetypes
 import os
 import re
 import subprocess
+import threading
 from pathlib import Path
 
 import streamlit as st
@@ -11,6 +12,9 @@ import streamlit as st
 # 直接 FailFast 崩溃。强制 invariant 模式让 vecto 跳过 ICU；subprocess 继承本环境变量。
 os.environ.setdefault("DOTNET_SYSTEM_GLOBALIZATION_INVARIANT", "1")
 os.environ.setdefault("CORECLR_GLOBAL_INVARIANT", "1")  # 旧版运行时兼容兜底
+
+# --- 并发保护 ---
+_TRACE_SEM = threading.Semaphore(3)
 
 # --- Vecto 二进制封装 ---
 
@@ -114,60 +118,70 @@ def run_trace_workflow(
 ) -> dict:
     import tempfile
 
-    with tempfile.TemporaryDirectory(prefix="vecto_work_") as td:
-        tmp = Path(td)
-        ext = Path(filename).suffix.lower() or ".png"
-        src = tmp / f"input{ext}"
-        src.write_bytes(image_bytes)
-        out_svg = tmp / "output.svg"
-        seg_png = tmp / "seg.png"
-        code, out, err = trace_image(
-            src,
-            out_svg,
-            colors=colors_count,
-            max_colors=max_colors,
-            detail=detail,
-            style=style,
-            polygons=polygons,
-            stats=stats,
-            seg_png=seg_png,
-        )
-        if code != 0:
-            return {"ok": False, "err": err, "stats": out, "svg": "", "preview": b"", "seg": b""}
-        svg_text = out_svg.read_text(encoding="utf-8")
-        preview = tmp / "preview.png"
-        prev_code, _, prev_err = render_svg(out_svg, preview, scale=1.0)
-        if prev_code != 0:
+    if not _TRACE_SEM.acquire(blocking=False):
+        return {"ok": False, "busy": True, "err": "当前转换繁忙，请稍后再试", "stats": "", "svg": "", "preview": b"", "seg": b""}
+    try:
+        with tempfile.TemporaryDirectory(prefix="vecto_work_") as td:
+            tmp = Path(td)
+            ext = Path(filename).suffix.lower() or ".png"
+            src = tmp / f"input{ext}"
+            src.write_bytes(image_bytes)
+            out_svg = tmp / "output.svg"
+            seg_png = tmp / "seg.png"
+            code, out, err = trace_image(
+                src,
+                out_svg,
+                colors=colors_count,
+                max_colors=max_colors,
+                detail=detail,
+                style=style,
+                polygons=polygons,
+                stats=stats,
+                seg_png=seg_png,
+            )
+            if code != 0:
+                return {"ok": False, "err": err, "stats": out, "svg": "", "preview": b"", "seg": b""}
+            svg_text = out_svg.read_text(encoding="utf-8")
+            preview = tmp / "preview.png"
+            prev_code, _, prev_err = render_svg(out_svg, preview, scale=1.0)
+            if prev_code != 0:
+                return {
+                    "ok": False,
+                    "err": prev_err,
+                    "stats": out,
+                    "svg": svg_text,
+                    "preview": b"",
+                    "seg": seg_png.read_bytes() if seg_png.exists() else b"",
+                }
             return {
-                "ok": False,
-                "err": prev_err,
+                "ok": True,
+                "err": "",
                 "stats": out,
                 "svg": svg_text,
-                "preview": b"",
+                "preview": preview.read_bytes(),
                 "seg": seg_png.read_bytes() if seg_png.exists() else b"",
             }
-        return {
-            "ok": True,
-            "err": "",
-            "stats": out,
-            "svg": svg_text,
-            "preview": preview.read_bytes(),
-            "seg": seg_png.read_bytes() if seg_png.exists() else b"",
-        }
+    finally:
+        _TRACE_SEM.release()
 
 
 def run_png_export(svg_text: str, scale: float) -> bytes:
     import tempfile
 
-    with tempfile.TemporaryDirectory(prefix="vecto_export_") as td:
-        tmp = Path(td)
-        src = tmp / "input.svg"
-        src.write_text(svg_text, encoding="utf-8")
-        dst = tmp / "output.png"
-        code, _, err = render_svg(src, dst, scale=scale)
-        if code != 0:
-            raise RuntimeError(err)
-        return dst.read_bytes()
+    if not _TRACE_SEM.acquire(blocking=False):
+        raise RuntimeError("当前转换繁忙，请稍后再试")
+    try:
+        with tempfile.TemporaryDirectory(prefix="vecto_export_") as td:
+            tmp = Path(td)
+            src = tmp / "input.svg"
+            src.write_text(svg_text, encoding="utf-8")
+            dst = tmp / "output.png"
+            code, _, err = render_svg(src, dst, scale=scale)
+            if code != 0:
+                raise RuntimeError(err)
+            return dst.read_bytes()
+    finally:
+        _TRACE_SEM.release()
 
 
 # --- UI 工具函数 ---
