@@ -60,7 +60,7 @@ with right:
     st.markdown(f"**{_('palette')}**")
     auto_colors = st.checkbox(_("palette_auto"), value=True, key="auto_colors_cb")
     colors_count = st.slider(
-        _("palette_count"), 2, 32, 12, disabled=auto_colors, key="colors_sel"
+        _("palette_count"), 2, 64, 12, disabled=auto_colors, key="colors_sel"
     )
     effective_colors = None if auto_colors else int(st.session_state.get("colors_sel", 12))
 
@@ -70,7 +70,7 @@ with right:
 
     with st.spinner(_("info_tracing")):
         result = trace_cached(
-            image_bytes, filename, effective_colors, 16, detail, style, False, True
+            image_bytes, filename, effective_colors, 64, detail, style, False, True
         )
 
     swatches = parse_palette_from_svg(result["svg"]) if result["ok"] else []
