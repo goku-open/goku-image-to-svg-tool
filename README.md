@@ -98,3 +98,4 @@ Streamlit 前端 ──subprocess──▶ tools/vecto trace(位图 → SVG)─�
 ---
 
 *Keywords: 图片转矢量, 位图转SVG, 图片矢量化, svg 转换, 在线矢量化工具, vecto 引擎, streamlit 应用, 免费开源, 中英双语, image to vector, raster to svg, image tracing, bitmap to svg, svg converter, vector graphics, vecto engine, streamlit app, open source*
+# Last updated: 2026-08-21T10:30:08+08:00
